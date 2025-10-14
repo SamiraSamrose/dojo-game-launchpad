@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dojo Game Launchpad - Mobile Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.8); }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .float { animation: float 3s ease-in-out infinite; }
+        .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .slide-in { animation: slideIn 0.5s ease-out forwards; }
+        .bounce-scale { animation: bounce 0.5s ease-in-out; }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        .rotate-slow { animation: rotate 20s linear infinite; }
+        .gradient-animate {
+            background: linear-gradient(270deg, #a855f7, #3b82f6, #10b981, #f59e0b);
+            background-size: 800% 800%;
+            animation: gradientShift 8s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .progress-bar {
+            transition: width 1s ease-in-out;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+        .particle { position: absolute; width: 4px; height: 4px; background: white; border-radius: 50%; opacity: 0.6; animation: particle-float 3s ease-in-out infinite; }
+        @keyframes particle-float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(var(--x), var(--y)); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div id="app"></div>
+
+    <script>
+        let state = {
+            activeTab: 'dashboard',
+            gameTitle: '',
+            selectedTemplate: '',
+            aiResponse: '',
+            chatMessages: [],
+            chatInput: '',
+            paymentMethod: '',
+            gamePublished: false,
+            uploadedFiles: [],
+            docsGenerated: false,
+            encryptionEnabled: true,
+            aiProcessing: false,
+            uploadProgress: 0,
+            launchProgress: 0,
+            coins: 0,
+            achievements: []
+        };
+
+        const templates = [
+            { id: 'rpg', name: 'RPG Starter', desc: 'Turn-based RPG with Dojo state management', color: 'from-purple-500 to-pink-500', icon: '⚔️' },
+            { id: 'platformer', name: '2D Platformer', desc: 'Physics-based platformer template', color: 'from-blue-500 to-cyan-500', icon: '🎮' },
+            { id: 'card', name: 'Card Battle', desc: 'Deck-building card game framework', color: 'from-red-500 to-orange-500', icon: '🃏' },
+            { id: 'strategy', name: 'Strategy Base', desc: 'Real-time strategy game template', color: 'from-green-500 to-emerald-500', icon: '🏰' },
+            { id: 'puzzle', name: 'Puzzle Kit', desc: 'Match-3 and puzzle mechanics', color: 'from-yellow-500 to-amber-500', icon: '🧩' },
+            { id: 'multiplayer', name: 'Multiplayer Starter', desc: 'Online multiplayer with Dojo', color: 'from-indigo-500 to-purple-500', icon: '👥' }
+        ];
+
+        function addCoins(amount) {
+            state.coins += amount;
+            showFloatingText('+' + amount + ' coins', 'text-yellow-400');
+        }
+
+        function showFloatingText(text, colorClass) {
+            const container = document.createElement('div');
+            container.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none';
+            container.innerHTML = `<div class="text-2xl font-bold ${colorClass} animate-bounce">${text}</div>`;
+            document.body.appendChild(container);
+            setTimeout(() => container.remove(), 2000);
+        }
+
+        function setActiveTab(tab) {
+            state.activeTab = tab;
+            addCoins(5);
+            render();
+        }
+
+        function handleAIAssist(task) {
+            state.aiProcessing = true;
+            state.aiResponse = '';
+            render();
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                if (progress > 100) {
+                    clearInterval(interval);
+                    state.aiProcessing = false;
+                    const responses = {
+                        publish: "🚀 AI Agent: Analyzing your game \"" + (state.gameTitle || 'Untitled Game') + "\"...\n\n✅ Validated Dojo smart contracts\n✅ Optimized game assets (reduced size by 32%)\n✅ Generated deployment manifest\n✅ Created payment integration hooks\n✅ Setup multi-chain wallet connectors\n\n🎉 Your game is ready to publish! Proceed to payment setup.",
+                        docs: "📚 AI Agent: Generating documentation using RAG...\n\n✅ API Reference (15 endpoints documented)\n✅ Game Mechanics Guide\n✅ Smart Contract Documentation\n✅ Player Tutorial\n✅ Developer Setup Guide\n\n🎊 All docs are now available in your project folder.",
+                        optimize: "⚡ AI Agent: Running optimization analysis...\n\n✅ Code bundle reduced by 28%\n✅ Texture compression enabled\n✅ Smart contract gas optimization\n✅ Mobile performance enhanced\n✅ Load time improved by 45%\n\n🔥 Your game is blazing fast now!"
+                    };
+                    state.aiResponse = responses[task];
+                    if (task === 'docs') state.docsGenerated = true;
+                    addCoins(50);
+                    state.achievements.push('🤖 AI Master');
+                    render();
+                }
+            }, 100);
+        }
+
+        function handleChatSend() {
+            if (state.chatInput.trim()) {
+                const encMsg = state.encryptionEnabled ? '🔒 [Encrypted via Wootzapp]' : '';
+                state.chatMessages.push(
+                    { type: 'user', text: state.chatInput },
+                    { type: 'ai', text: "🤖 AI Agent: I'll help you with that. " + encMsg + " Let me analyze your question about \"" + state.chatInput.substring(0, 30) + "...\"" }
+                );
+                state.chatInput = '';
+                addCoins(10);
+                render();
+                setTimeout(() => {
+                    const chat = document.getElementById('chatContainer');
+                    if (chat) chat.scrollTop = chat.scrollHeight;
+                }, 100);
+            }
+        }
+
+        function handlePublish() {
+            if (state.gameTitle && state.selectedTemplate && state.paymentMethod) {
+                state.launchProgress = 0;
+                const interval = setInterval(() => {
+                    state.launchProgress += 10;
+                    if (state.launchProgress >= 100) {
+                        clearInterval(interval);
+                        state.gamePublished = true;
+                        addCoins(200);
+                        state.achievements.push('🚀 Game Launcher');
+                        render();
+                        setTimeout(() => {
+                            state.gamePublished = false;
+                            render();
+                        }, 4000);
+                    }
+                    render();
+                }, 200);
+            }
+        }
+
+        function handleFileUpload() {
+            state.uploadProgress = 0;
+            const interval = setInterval(() => {
+                state.uploadProgress += 20;
+                if (state.uploadProgress >= 100) {
+                    clearInterval(interval);
+                    state.uploadedFiles.push('game_build_' + Date.now() + '.dojo');
+                    state.uploadProgress = 0;
+                    addCoins(30);
+                    render();
+                }
+                render();
+            }, 150);
+        }
+
+        function selectTemplate(id) {
+            state.selectedTemplate = id;
+            addCoins(25);
+            showFloatingText('Template Selected! 🎮', 'text-blue-400');
+            render();
+        }
+
+        function selectPayment(method) {
+            state.paymentMethod = method;
+            addCoins(20);
+            showFloatingText('Payment Ready! 💰', 'text-green-400');
+            render();
+        }
+
+        function renderDashboard() {
+            return `
+                <div class="space-y-6">
+                    <div class="relative overflow-hidden bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-2xl p-8 text-white shadow-2xl">
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32 rotate-slow"></div>
+                        <div class="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24 float"></div>
+                        <div class="relative z-10">
+                            <h2 class="text-4xl font-black mb-3 drop-shadow-lg">Welcome to Dojo Launchpad 🚀</h2>
+                            <p class="text-xl opacity-90">Your mobile platform for launching indie games with AI, privacy, and multi-chain payments</p>
+                            <div class="mt-4 flex items-center gap-4">
+                                <div class="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+                                    <span class="text-yellow-300 font-bold">💰 ${state.coins} Coins</span>
+                                </div>
+                                <div class="bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
+                                    <span class="text-purple-300 font-bold">🏆 ${state.achievements.length} Achievements</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        ${[
+                            { name: 'AI Agent', desc: 'RAG-powered assistance', icon: '🧠', color: 'from-purple-500 to-purple-700', tab: 'ai' },
+                            { name: 'Dojo Engine', desc: 'Game framework', icon: '🎮', color: 'from-blue-500 to-blue-700', tab: 'dojo' },
+                            { name: 'Chipi Pay', desc: 'Starknet payments', icon: '💳', color: 'from-green-500 to-green-700', tab: 'payments' },
+                            { name: 'Bitcoin', desc: 'Xverse and Vesu', icon: '₿', color: 'from-orange-500 to-orange-700', tab: 'payments' },
+                            { name: 'Mobile Launcher', desc: 'Cross-platform', icon: '📱', color: 'from-red-500 to-red-700', tab: 'launcher' },
+                            { name: 'Wootzapp', desc: 'Encrypted chats', icon: '🔒', color: 'from-indigo-500 to-indigo-700', tab: 'privacy' }
+                        ].map(item => `
+                            <div onclick="setActiveTab('${item.tab}')" class="card-hover cursor-pointer bg-gradient-to-br ${item.color} rounded-xl p-6 text-white shadow-lg transform transition">
+                                <div class="text-5xl mb-3">${item.icon}</div>
+                                <h3 class="text-xl font-bold mb-2">${item.name}</h3>
+                                <p class="text-sm opacity-90">${item.desc}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 rounded-2xl p-6 shadow-xl pulse-glow">
+                        <div class="flex items-start">
+                            <div class="text-5xl mr-4">🔓</div>
+                            <div class="text-white">
+                                <h4 class="text-2xl font-bold mb-2">Open Source Templates</h4>
+                                <p class="text-lg">All game templates are open-source and free to use - Build the future together!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAIAgent() {
+            return `
+                <div class="space-y-4">
+                    <div class="bg-gradient-to-br from-purple-900 to-purple-700 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
+                        <div class="absolute top-0 right-0 text-9xl opacity-10">🤖</div>
+                        <div class="relative z-10">
+                            <div class="flex items-center mb-4">
+                                <div class="text-6xl mr-4 float">🧠</div>
+                                <div>
+                                    <h2 class="text-3xl font-black">AI Agent Assistant</h2>
+                                    <p class="text-purple-200 text-lg">RAG-powered AI to help publish games and write documentation</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                                <button onclick="handleAIAssist('publish')" class="card-hover bg-gradient-to-r from-pink-500 to-rose-500 text-white py-6 px-4 rounded-xl hover:shadow-2xl transition font-bold text-lg">
+                                    <div class="text-4xl mb-2">🚀</div>
+                                    Publish Game
+                                    <div class="text-xs mt-1 opacity-75">+50 coins</div>
+                                </button>
+                                <button onclick="handleAIAssist('docs')" class="card-hover bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-6 px-4 rounded-xl hover:shadow-2xl transition font-bold text-lg">
+                                    <div class="text-4xl mb-2">📚</div>
+                                    Generate Docs
+                                    <div class="text-xs mt-1 opacity-75">+50 coins</div>
+                                </button>
+                                <button onclick="handleAIAssist('optimize')" class="card-hover bg-gradient-to-r from-green-500 to-emerald-500 text-white py-6 px-4 rounded-xl hover:shadow-2xl transition font-bold text-lg">
+                                    <div class="text-4xl mb-2">⚡</div>
+                                    Optimize Assets
+                                    <div class="text-xs mt-1 opacity-75">+50 coins</div>
+                                </button>
+                            </div>
+
+                            ${state.aiProcessing ? `
+                                <div class="mt-6 bg-white/10 rounded-xl p-6 backdrop-blur-sm">
+                                    <div class="flex items-center justify-center space-x-3 mb-4">
+                                        <div class="w-4 h-4 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                                        <div class="w-4 h-4 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                                        <div class="w-4 h-4 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                                    </div>
+                                    <p class="text-center text-lg font-semibold">AI is processing your request...</p>
+                                </div>
+                            ` : ''}
+
+                            ${state.aiResponse ? `
+                                <div class="mt-6 bg-white/10 rounded-xl p-6 backdrop-blur-sm border-2 border-purple-300 slide-in">
+                                    <pre class="text-sm whitespace-pre-wrap font-mono leading-relaxed">${state.aiResponse}</pre>
+                                </div>
+                            ` : ''}
+
+                            ${state.docsGenerated ? `
+                                <div class="mt-4 bg-green-500 p-4 rounded-xl flex items-center shadow-lg bounce-scale">
+                                    <div class="text-4xl mr-3">✅</div>
+                                    <div>
+                                        <span class="text-white font-bold text-xl">Documentation successfully generated!</span>
+                                        <div class="text-green-100 text-sm">+50 coins earned!</div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDojoEngine() {
+            return `
+                <div class="bg-gradient-to-br from-blue-900 to-blue-700 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
+                    <div class="absolute top-0 right-0 text-9xl opacity-10">🎮</div>
+                    <div class="relative z-10">
+                        <div class="flex items-center mb-6">
+                            <div class="text-6xl mr-4 float">🎮</div>
+                            <h2 class="text-3xl font-black">Dojo Game Engine</h2>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-xl font-bold mb-3">🎯 Game Title</label>
+                            <input type="text" value="${state.gameTitle}" oninput="state.gameTitle = this.value; render()" placeholder="Enter your epic game title..." class="w-full p-4 border-4 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-500 text-gray-900 text-lg font-semibold placeholder-gray-400 transition">
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-xl font-bold mb-3">🎨 Select Open-Source Template</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${templates.map(template => `
+                                    <button onclick="selectTemplate('${template.id}')" class="card-hover p-6 rounded-xl text-left transition bg-gradient-to-br ${template.color} ${state.selectedTemplate === template.id ? 'ring-4 ring-white scale-105' : 'opacity-80 hover:opacity-100'}">
+                                        <div class="text-4xl mb-2">${template.icon}</div>
+                                        <div class="font-bold text-xl mb-1">${template.name}</div>
+                                        <div class="text-sm opacity-90">${template.desc}</div>
+                                        ${state.selectedTemplate === template.id ? '<div class="mt-2 text-xs bg-white/20 rounded-full px-3 py-1 inline-block">✓ Selected</div>' : ''}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <button onclick="handleFileUpload()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-5 px-6 rounded-xl hover:shadow-2xl transition font-bold text-xl card-hover">
+                            <div class="flex items-center justify-center">
+                                <span class="text-3xl mr-3">📤</span>
+                                Upload Game Build (+30 coins)
+                            </div>
+                        </button>
+
+                        ${state.uploadProgress > 0 ? `
+                            <div class="mt-4 bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                                <div class="flex justify-between mb-2">
+                                    <span class="font-semibold">Uploading...</span>
+                                    <span class="font-bold">${state.uploadProgress}%</span>
+                                </div>
+                                <div class="w-full bg-white/20 rounded-full h-4 overflow-hidden">
+                                    <div class="progress-bar h-full bg-gradient-to-r from-cyan-400 to-blue-400 shimmer" style="width: ${state.uploadProgress}%"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${state.uploadedFiles.length > 0 ? `
+                            <div class="mt-4 bg-white/10 rounded-xl p-4 backdrop-blur-sm slide-in">
+                                <h4 class="font-bold text-lg mb-3 flex items-center">
+                                    <span class="text-2xl mr-2">📁</span>
+                                    Uploaded Files:
+                                </h4>
+                                ${state.uploadedFiles.map(file => `
+                                    <div class="flex items-center text-sm mb-2 bg-white/10 rounded-lg p-3">
+                                        <span class="text-2xl mr-2">✅</span>
+                                        <span class="font-mono">${file}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPayments() {
+            return `
+                <div class="bg-gradient-to-br from-green-900 to-emerald-700 rounded-2xl shadow-2xl p-8 text-white">
+                    <h2 class="text-3xl font-black mb-6 flex items-center">
+                        <span class="text-5xl mr-3">💰</span>
+                        Multi-Chain Payment Setup
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        ${[
+                            { id: 'chipi', name: 'Starknet', sub: 'Chipi Pay', icon: '💳', color: 'from-green-500 to-emerald-500', desc: 'Fast, low-cost transactions' },
+                            { id: 'xverse', name: 'Bitcoin', sub: 'Xverse', icon: '₿', color: 'from-orange-500 to-yellow-500', desc: 'Secure Bitcoin payments' },
+                            { id: 'vesu', name: 'Bitcoin', sub: 'Vesu', icon: '🪙', color: 'from-yellow-500 to-amber-500', desc: 'Vesu protocol integration' }
+                        ].map(payment => `
+                            <button onclick="selectPayment('${payment.id}')" class="card-hover p-6 rounded-xl cursor-pointer transition bg-gradient-to-br ${payment.color} ${state.paymentMethod === payment.id ? 'ring-4 ring-white scale-105' : 'opacity-80 hover:opacity-100'}">
+                                <div class="text-6xl mb-3">${payment.icon}</div>
+                                <h3 class="text-2xl font-bold mb-1">${payment.name}</h3>
+                                <p class="text-lg font-semibold opacity-90 mb-2">${payment.sub}</p>
+                                <p class="text-sm opacity-75">${payment.desc}</p>
+                                ${state.paymentMethod === payment.id ? '<div class="mt-3 text-sm bg-white/20 rounded-full px-4 py-2 inline-block">✓ Selected (+20 coins)</div>' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    ${state.paymentMethod ? `
+                        <div class="mt-6 bg-white/10 rounded-xl p-6 backdrop-blur-sm border-2 border-white/30 slide-in">
+                            <h4 class="text-2xl font-bold mb-4 flex items-center">
+                                <span class="text-3xl mr-2">📊</span>
+                                Payment Details
+                            </h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-white/10 rounded-lg p-4">
+                                    <div class="text-sm opacity-75 mb-1">Selected Method</div>
+                                    <div class="text-xl font-bold uppercase">${state.paymentMethod}</div>
+                                </div>
+                                <div class="bg-white/10 rounded-lg p-4">
+                                    <div class="text-sm opacity-75 mb-1">Network Fee</div>
+                                    <div class="text-xl font-bold">~0.02%</div>
+                                </div>
+                                <div class="bg-white/10 rounded-lg p-4">
+                                    <div class="text-sm opacity-75 mb-1">Settlement</div>
+                                    <div class="text-xl font-bold">Instant ⚡</div>
+                                </div>
+                                <div class="bg-white/10 rounded-lg p-4">
+                                    <div class="text-sm opacity-75 mb-1">Status</div>
+                                    <div class="text-xl font-bold text-green-300">Ready ✓</div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderMobileLauncher() {
+            const canPublish = state.gameTitle && state.selectedTemplate && state.paymentMethod;
+            const completionPercent = Math.round(((state.gameTitle ? 1 : 0) + (state.selectedTemplate ? 1 : 0) + (state.paymentMethod ? 1 : 0)) / 3 * 100);
+            
+            return `
+                <div class="bg-gradient-to-br from-red-900 to-pink-700 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
+                    <div class="absolute top-0 right-0 text-9xl opacity-10">🚀</div>
+                    <div class="relative z-10">
+                        <div class="flex items-center mb-6">
+                            <div class="text-6xl mr-4 float">📱</div>
+                            <h2 class="text-3xl font-black">Mobile Game Launcher</h2>
+                        </div>
+
+                        <div class="bg-white/10 rounded-xl p-6 backdrop-blur-sm mb-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xl font-bold">Setup Completion</h3>
+                                <span class="text-2xl font-black">${completionPercent}%</span>
+                            </div>
+                            <div class="w-full bg-white/20 rounded-full h-6 overflow-hidden">
+                                <div class="progress-bar h-full bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 shimmer flex items-center justify-center text-xs font-bold" style="width: ${completionPercent}%">
+                                    ${completionPercent > 0 ? completionPercent + '%' : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            ${[
+                                { label: 'Game Title', value: state.gameTitle || 'Not set', icon: '🎮', status: state.gameTitle },
+                                { label: 'Template', value: state.selectedTemplate || 'Not selected', icon: '🎨', status: state.selectedTemplate },
+                                { label: 'Payment', value: state.paymentMethod || 'Not configured', icon: '💰', status: state.paymentMethod },
+                                { label: 'Platform', value: 'iOS / Android / Web', icon: '📱', status: true }
+                            ].map(item => `
+                                <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm ${item.status ? 'border-2 border-green-400' : 'border-2 border-gray-500'}">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <span class="text-3xl mr-3">${item.icon}</span>
+                                            <div>
+                                                <div class="text-sm opacity-75">${item.label}</div>
+                                                <div class="font-bold text-lg">${item.value}</div>
+                                            </div>
+                                        </div>
+                                        ${item.status ? '<span class="text-3xl">✅</span>' : '<span class="text-3xl">⭕</span>'}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <button onclick="handlePublish()" ${!canPublish ? 'disabled' : ''} class="w-full py-6 px-8 rounded-xl font-black text-2xl transition ${canPublish ? 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 hover:shadow-2xl cursor-pointer card-hover' : 'bg-gray-600 cursor-not-allowed opacity-50'}">
+                            <div class="flex items-center justify-center">
+                                <span class="text-4xl mr-3">🚀</span>
+                                Launch Game to Mobile (+200 coins)
+                            </div>
+                        </button>
+
+                        ${state.launchProgress > 0 && state.launchProgress < 100 ? `
+                            <div class="mt-6 bg-white/10 rounded-xl p-6 backdrop-blur-sm">
+                                <div class="flex justify-between mb-3">
+                                    <span class="text-xl font-bold">Launching...</span>
+                                    <span class="text-2xl font-black">${state.launchProgress}%</span>
+                                </div>
+                                <div class="w-full bg-white/20 rounded-full h-6 overflow-hidden">
+                                    <div class="progress-bar h-full bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 shimmer" style="width: ${state.launchProgress}%"></div>
+                                </div>
+                                <div class="mt-3 text-center">
+                                    <div class="flex items-center justify-center space-x-2">
+                                        <div class="w-3 h-3 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                                        <div class="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                                        <div class="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${state.gamePublished ? `
+                            <div class="mt-6 bg-gradient-to-r from-green-400 to-emerald-500 border-4 border-white p-8 rounded-2xl shadow-2xl bounce-scale">
+                                <div class="flex items-center">
+                                    <div class="text-7xl mr-4 float">🎉</div>
+                                    <div>
+                                        <h4 class="text-3xl font-black text-white mb-2">Game Published Successfully!</h4>
+                                        <p class="text-xl text-white">Your game is now live on mobile platforms</p>
+                                        <div class="mt-3 flex gap-2">
+                                            <span class="bg-white text-green-600 px-4 py-2 rounded-full font-bold">+200 coins earned!</span>
+                                            <span class="bg-white text-purple-600 px-4 py-2 rounded-full font-bold">🏆 Achievement Unlocked!</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPrivacy() {
+            return `
+                <div class="bg-gradient-to-br from-indigo-900 to-purple-700 rounded-2xl shadow-2xl p-8 text-white">
+                    <div class="flex items-center mb-6">
+                        <div class="text-6xl mr-4 float">🔒</div>
+                        <div>
+                            <h2 class="text-3xl font-black">Wootzapp - Encrypted Privacy</h2>
+                            <p class="text-lg text-purple-200">End-to-end encrypted communications</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/10 rounded-xl p-6 backdrop-blur-sm mb-6 border-2 border-purple-300">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="text-5xl mr-4">🛡️</span>
+                                <div>
+                                    <h4 class="text-xl font-bold">End-to-End Encryption</h4>
+                                    <p class="text-sm opacity-75">All chats with AI agent are secured</p>
+                                </div>
+                            </div>
+                            <button onclick="state.encryptionEnabled = !state.encryptionEnabled; render()" class="px-6 py-3 rounded-xl font-bold transition text-lg card-hover ${state.encryptionEnabled ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600'}">
+                                ${state.encryptionEnabled ? '🔒 Enabled' : '🔓 Disabled'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="chatContainer" class="border-4 border-purple-300 rounded-xl p-4 h-80 overflow-y-auto mb-4 bg-gradient-to-b from-purple-950 to-indigo-950">
+                        ${state.chatMessages.length > 0 ? state.chatMessages.map((msg, idx) => `
+                            <div class="mb-4 slide-in" style="animation-delay: ${idx * 0.1}s">
+                                <div class="${msg.type === 'user' ? 'text-right' : 'text-left'}">
+                                    <div class="inline-block p-4 rounded-2xl max-w-xs shadow-lg ${msg.type === 'user' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-gradient-to-r from-purple-500 to-pink-500'}">
+                                        ${msg.text}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-center text-purple-300 mt-32 text-lg">🤖 Start a secure conversation with the AI agent</div>'}
+                    </div>
+
+                    <div class="flex gap-3">
+                        <input type="text" id="chatInput" value="${state.chatInput}" oninput="state.chatInput = this.value" onkeypress="if(event.key === 'Enter') handleChatSend()" placeholder="Ask AI agent anything (encrypted)..." class="flex-1 p-4 border-4 border-purple-300 rounded-xl focus:ring-4 focus:ring-purple-500 bg-white/10 text-white placeholder-purple-200 text-lg font-semibold backdrop-blur-sm">
+                        <button onclick="handleChatSend()" class="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 rounded-xl hover:shadow-2xl transition font-bold text-xl card-hover">
+                            <span class="text-2xl">📤</span>
+                        </button>
+                    </div>
+
+                    ${state.encryptionEnabled ? `
+                        <div class="mt-4 flex items-center justify-center text-green-300 font-semibold">
+                            <span class="text-2xl mr-2">🛡️</span>
+                            Messages are encrypted end-to-end via Wootzapp
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderOpenSource() {
+            return `
+                <div class="bg-gradient-to-br from-gray-900 to-slate-700 rounded-2xl shadow-2xl p-8 text-white">
+                    <div class="flex items-center mb-6">
+                        <div class="text-6xl mr-4 float">🔓</div>
+                        <h2 class="text-3xl font-black">Open Source Templates</h2>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-purple-500 to-blue-500 p-6 rounded-2xl mb-6 shadow-lg">
+                        <p class="text-xl font-bold text-white">
+                            ✨ All game templates are open-source and free to use under MIT License ✨
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${templates.map(template => `
+                            <div class="card-hover border-4 border-gray-600 rounded-2xl p-6 hover:border-white transition bg-gradient-to-br ${template.color}">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="text-6xl mb-3 float">${template.icon}</div>
+                                        <h3 class="text-2xl font-black mb-2">${template.name}</h3>
+                                        <p class="text-sm mb-4 opacity-90">${template.desc}</p>
+                                        <div class="flex gap-2 flex-wrap">
+                                            <span class="bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">Dojo 0.7.x</span>
+                                            <span class="bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">MIT License</span>
+                                            <span class="bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">Mobile Ready</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="w-full mt-4 bg-white text-gray-900 px-6 py-3 rounded-xl hover:bg-gray-100 transition font-bold text-lg card-hover shadow-lg">
+                                    <span class="mr-2">📥</span>
+                                    Clone Template
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const tabs = [
+                { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+                { id: 'ai', label: 'AI Agent', icon: '🧠' },
+                { id: 'dojo', label: 'Dojo Engine', icon: '🎮' },
+                { id: 'payments', label: 'Payments', icon: '💰' },
+                { id: 'launcher', label: 'Launcher', icon: '🚀' },
+                { id: 'privacy', label: 'Privacy', icon: '🔒' },
+                { id: 'opensource', label: 'Open Source', icon: '🔓' }
+            ];
+
+            let content = '';
+            switch(state.activeTab) {
+                case 'dashboard': content = renderDashboard(); break;
+                case 'ai': content = renderAIAgent(); break;
+                case 'dojo': content = renderDojoEngine(); break;
+                case 'payments': content = renderPayments(); break;
+                case 'launcher': content = renderMobileLauncher(); break;
+                case 'privacy': content = renderPrivacy(); break;
+                case 'opensource': content = renderOpenSource(); break;
+            }
+
+            document.getElementById('app').innerHTML = `
+                <div class="gradient-animate text-white p-6 shadow-2xl sticky top-0 z-20">
+                    <div class="max-w-6xl mx-auto flex items-center justify-between">
+                        <div>
+                            <h1 class="text-4xl font-black mb-1 drop-shadow-lg">🚀 Dojo Game Launchpad</h1>
+                            <p class="text-lg opacity-90">Mobile platform for indie game developers</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="bg-white/20 backdrop-blur-sm rounded-xl px-5 py-3 border-2 border-white/30">
+                                <div class="text-3xl font-black text-yellow-300">💰 ${state.coins}</div>
+                                <div class="text-xs opacity-75">Coins</div>
+                            </div>
+                            <div class="bg-white/20 backdrop-blur-sm rounded-xl px-5 py-3 border-2 border-white/30">
+                                <div class="text-3xl font-black text-purple-300">🏆 ${state.achievements.length}</div>
+                                <div class="text-xs opacity-75">Achievements</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white/10 backdrop-blur-sm shadow-lg sticky top-24 z-10">
+                    <div class="max-w-6xl mx-auto">
+                        <div class="flex overflow-x-auto">
+                            ${tabs.map(tab => `
+                                <button onclick="setActiveTab('${tab.id}')" class="flex items-center px-6 py-4 whitespace-nowrap transition border-b-4 font-bold text-lg ${state.activeTab === tab.id ? 'border-yellow-400 text-yellow-400 bg-white/20 scale-105' : 'border-transparent text-white/70 hover:text-white hover:bg-white/10'}">
+                                    <span class="text-2xl mr-2">${tab.icon}</span>
+                                    ${tab.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="max-w-6xl mx-auto p-6 pb-12">
+                    ${content}
+                </div>
+
+                <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-900 text-white p-8 mt-12">
+                    <div class="max-w-6xl mx-auto text-center">
+                        <div class="text-6xl mb-4">🌟</div>
+                        <p class="text-xl font-bold mb-2">
+                            Powered by Dojo Engine • Starknet (Chipi Pay) • Bitcoin (Xverse & Vesu) • Wootzapp Encryption
+                        </p>
+                        <p class="text-sm opacity-75 mt-3">All game templates are open-source under MIT License</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        render();
+    </script>
+</body>
+</html>
