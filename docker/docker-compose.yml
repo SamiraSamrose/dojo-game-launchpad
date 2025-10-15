@@ -1,1 +1,32 @@
+version: '3.8'
 
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: dojo_launchpad
+      POSTGRES_USER: dojo_user
+      POSTGRES_PASSWORD: dojo_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://dojo_user:dojo_pass@postgres/dojo_launchpad
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
