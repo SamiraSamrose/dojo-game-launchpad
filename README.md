@@ -17,7 +17,7 @@ A mobile platform for indie game developers to launch Dojo games with AI assista
 
 - Demo Site- https://samirasamrose.github.io/dojo-game-launchpad/
 - Source Code- https://github.com/SamiraSamrose/dojo-game-launchpad
-- Video Demo- 
+- Video Demo- https://youtube.com/shorts/5oCMgh3Ik38
 
 ## Quick Start
 
