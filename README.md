@@ -5,13 +5,13 @@ A mobile platform for indie game developers to launch Dojo games with AI assista
 ## Features
 
 -  **AI Agent with RAG**: Automatic documentation generation and game optimization
--  **Dojo Engine**: 6 open-source game templates (RPG, Platformer, Card Battle, etc.)
+-  **Dojo Game Engine**: 6 open-source game templates (RPG, Platformer, Card Battle, etc.)
 -  **Multi-Chain Payments**: Starknet (Chipi Pay), Bitcoin (Xverse, Vesu)
+-  **Bitcoin**: Accepts BTC using Xverse or Vesu
 -  **End-to-End Encryption**: Secure developer communications via Wootzapp
 -  **Mobile Launcher**: Deploy to iOS, Android, and Web
--  **Open Source**: All templates under MIT License
-
-
+-  **Privacy**: Encrypted dev chats with agent (Wootzapp)
+-  **Open Innovation**: All game templates open-source
 
 ## Quick Start
 
