@@ -1,8 +1,10 @@
+# docker/docker-compose.yml
 version: '3.8'
 
 services:
   postgres:
     image: postgres:15
+    container_name: dojo-postgres
     environment:
       POSTGRES_DB: dojo_launchpad
       POSTGRES_USER: dojo_user
@@ -11,22 +13,72 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dojo_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
+    container_name: dojo-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: dojo-api
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://dojo_user:dojo_pass@postgres/dojo_launchpad
+      DATABASE_URL: postgresql://dojo_user:dojo_pass@postgres:5432/dojo_launchpad
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      STARKNET_NODE_URL: ${STARKNET_NODE_URL}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../uploads:/app/uploads
+      - ../docs:/app/docs
+      - ../logs:/app/logs
+
+  celery:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: dojo-celery
+    command: celery -A backend.tasks worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://dojo_user:dojo_pass@postgres:5432/dojo_launchpad
       REDIS_URL: redis://redis:6379
     depends_on:
       - postgres
       - redis
+    volumes:
+      - ../uploads:/app/uploads
+
+  nginx:
+    image: nginx:alpine
+    container_name: dojo-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
