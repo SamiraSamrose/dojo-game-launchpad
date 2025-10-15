@@ -1,1 +1,57 @@
-
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dojo-launchpad-api
+  labels:
+    app: dojo-launchpad
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dojo-launchpad
+  template:
+    metadata:
+      labels:
+        app: dojo-launchpad
+    spec:
+      containers:
+      - name: api
+        image: dojo-launchpad:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: dojo-secrets
+              key: database-url
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dojo-secrets
+              key: openai-key
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dojo-secrets
+              key: encryption-key
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
