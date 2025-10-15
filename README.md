@@ -13,6 +13,12 @@ A mobile platform for indie game developers to launch Dojo games with AI assista
 -  **Privacy**: Encrypted dev chats with agent (Wootzapp)
 -  **Open Innovation**: All game templates open-source
 
+## Links
+
+Demo Site- https://samirasamrose.github.io/dojo-game-launchpad/
+Source Code- https://github.com/SamiraSamrose/dojo-game-launchpad
+Video Demo- 
+
 ## Quick Start
 
 ### Prerequisites
